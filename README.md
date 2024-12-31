@@ -39,8 +39,7 @@ my_project_name/
 │   └── llm.py           # LLM client and prompt-building logic
 ├── app.py               # Streamlit application entry point
 ├── pyproject.toml       # Build system & dependency configuration, including Black formatting
-├── README.md            # This readme
-└── requirements.txt     # (Optional) A list of pinned dependencies if desired
+└── README.md            # This readme
 ```
 
 ### Key Files
@@ -53,36 +52,6 @@ my_project_name/
   Creates or loads a [Chroma DB](https://docs.trychroma.com/) collection, embeds text chunks using [Sentence Transformers](https://www.sbert.net/), and provides a semantic search method.
 - **`services/llm.py`**  
   Houses the LLM (chat/completions) client, system prompt building, and a higher-level `explain_paper` function that organizes user/system messages for multi-turn dialogues or single responses.
-
----
-
-## Installation
-
-1. **Clone the repository** (or download the source):
-
-   ```bash
-   git clone https://github.com/your-username/my_project_name.git
-   cd my_project_name
-   ```
-
-2. **Install dependencies** (e.g., in a virtual environment):
-
-   ```bash
-   pip install --upgrade build setuptools wheel
-   pip install -e .
-   ```
-
-   This will:
-   - Install packages defined in `pyproject.toml`.
-   - Make your `services` subpackage importable system-wide.
-
-3. **Optional**: If you have a `requirements.txt`, you can also do:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **(Recommended) Set environment variables** (see [Environment Variables](#environment-variables)).
 
 ---
 
@@ -101,7 +70,7 @@ This will start the Streamlit server. You can then open the displayed URL (usual
 1. **Enter BioRxiv DOI(s)** in the left sidebar (one per line).
 2. **Type your question** or request in the `Question / Request` text field.
 3. **Select a technical level** (elementary, high school, undergrad, domain expert).
-4. **Choose an LLM model** from the dropdown (e.g., `google/gemini-2.0-flash-thinking-exp:free` or `meta-llama/llama-3.3-70b-instruct`).
+4. **Choose an LLM model** from the dropdown (e.g.,`meta-llama/llama-3.3-70b-instruct`).
 5. Click **Generate Answer** and wait for the response to appear.
 
 #### Single DOI Mode
@@ -123,31 +92,6 @@ Set them in your environment or in a `.env` file. For example:
 
 ```bash
 # .env
-OPENROUTER_API_KEY=sk-123456789abcdef
+OPENROUTER_API_KEY=sk-XXXXXXXXXX
 ```
 
-Then ensure your `pyproject.toml` or `requirements.txt` includes `python-dotenv`, and you load it in your code (already demonstrated in `services/llm.py`).
-
----
-
-## Customization
-
-- **Chunk Size & Overlap**: Adjust in `services/etl.py` (`get_biorxiv_chunks`) to suit your data size.  
-- **LLM Settings**: Modify the `build_system_prompt` or `explain_paper` functions in `services/llm.py` for different prompt styles.  
-- **Embedding Model**: Update the transformer model in `app.py` if you want to use a different encoder (e.g., `all-MiniLM-L6-v2`).  
-- **Chroma DB Persistence**: Edit the path in `services/embeddings.py` (`init_chroma_db`) if you want a different location or database name.
-
----
-
-## Roadmap
-
-- **Multi-turn Chat**: Extend to store conversation history in `st.session_state` and allow follow-up queries referencing prior messages.  
-- **Error Handling**: Improve robustness for cases where the BioRxiv PDF is missing or the request fails.  
-- **Citations & References**: Generate references or highlight relevant sections from the PDF automatically.  
-- **Deployment**: Containerize the app with Docker or deploy on Streamlit Community Cloud or another hosting provider.
-
----
-
-## License
-
-This project is licensed under the [MIT License](https://opensource.org/licenses/MIT). Feel free to modify and distribute as permitted.  
