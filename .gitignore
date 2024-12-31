@@ -1,0 +1,5 @@
+.env
+*.ipynb
+*.pyc
+*build/
+*egg-info/
