@@ -90,7 +90,7 @@ class ScholarDigestAI:
         else:
             background = ""
 
-        # Add user message
+        # Add user s
         user_message = {
             "role": "user",
             "content": f"{question}\n\n{background}Please give your answer at a {technical_level} level.",
