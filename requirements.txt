@@ -2,10 +2,11 @@ requests>=2.32.0
 pdfplumber>=0.11.0
 langchain>=0.3.13
 sentence-transformers>=3.3.0
-chromadb>=0.5.23
-streamlit-chromadb-connection>=1.0.5
+chromadb==0.5.3
+chroma-hnswlib==0.7.3
+streamlit-chromadb-connection==1.0.5
 openai>=1.58.1
 python-dotenv>=1.0.0
-streamlit>=1.41.0
+streamlit>=1.36.0
 emoji>=2.14.0
 bs4>=0.0.2
