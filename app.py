@@ -12,6 +12,7 @@ from services.llm import ScholarDigestAI
 ROBOT_EMOJI = emoji.emojize(":robot:")
 FILING_CABINET_EMOJI = emoji.emojize(":card_file_box:")
 DATA_LOADING_EMOJI = emoji.emojize(":hourglass_flowing_sand:")
+BOOK_STACK_EMOJI = emoji.emojize(":books:")
 
 
 def main():
@@ -23,8 +24,23 @@ def main():
     )
     bio_clinical_bert = SentenceTransformer(modules=[word_embedding_model, pooling_model])
 
+    # is it running on Streamlit Cloud?
+    if "streamlit" in st.__file__:
+        st.set_page_config(
+            page_title="ScholarDigestAI - Paper Explainer",
+            page_icon=f"{BOOK_STACK_EMOJI}{ROBOT_EMOJI}",
+            layout="wide",
+            initial_sidebar_state="expanded",
+        )
+        persist_directory = None # Use in-memory DB
+    else:
+        persist_directory = "./chroma_db"  # Use local DB
+
+
     # ---- Initialize or Load Chroma DB ----
-    chroma_db_client, chroma_db_collection = init_chroma_db("./chroma_db")
+    chroma_db_client, chroma_db_collection = init_chroma_db(
+        persist_directory=persist_directory
+    )
 
     # ---- Streamlit UI ----
     st.title("ScholarDigestAI - Paper Explainer")
