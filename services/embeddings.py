@@ -1,5 +1,13 @@
 # services/embeddings.py
 
+import sys
+try:
+    import pysqlite3
+    sys.modules["sqlite3"] = pysqlite3
+except ImportError:
+    raise RuntimeError("pysqlite3-binary is not installed. Add it to your requirements.txt.")
+
+
 import chromadb
 from chromadb import Client
 from chromadb.config import Settings
