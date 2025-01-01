@@ -1,101 +1,106 @@
-# services/llm.py
-
 import os
 import dotenv
-
-# Example of an OpenAI-like client
 from openai import OpenAI
 
 dotenv.load_dotenv()
 
 OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
 
-# Initialize client (OpenAI or your LLM provider)
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=OPENROUTER_KEY,
-)
 
+class ScholarDigestAI:
+    def __init__(self, api_key=OPENROUTER_KEY, article_text=None):
+        """
+        Initialize the ScholarDigestAI object.
 
-def build_system_prompt(technical_level="high school", article_text=None) -> str:
-    """
-    Build a system (assistant) prompt providing context + instructions
-    based on the user's technical level and, optionally, text from the article or search.
-    """
-    instructions = (
-        "You are ScholarDigestAI, tasked with summarizing and explaining academic papers. "
-        "Your goal is to be as clear as possible while matching the user’s technical level. "
-        "Avoid excessive jargon and provide context to help with understanding."
-    )
-    background = f"Here is some relevant text:\n{article_text}" if article_text else ""
-    return (
-        f"{instructions}\n"
-        f"Technical Level: {technical_level}\n\n"
-        f"{background}"
-    )
+        :param api_key: API key for OpenAI or equivalent LLM provider.
+        :param model: Default model to use for completions.
+        """
+        self.api_key = api_key or os.getenv("OPENROUTER_API_KEY", "")
+        if not self.api_key:
+            raise ValueError("API key must be provided or set in environment variables.")
 
+        self.client = OpenAI(
+            base_url="https://openrouter.ai/api/v1",
+            api_key=self.api_key,
+        )
+        self.article_text = article_text
+        self.system_prompt = self._generate_system_prompt()
+        self.conversation = [self.system_prompt]
 
-def get_llm_response(conversation, llm_model="google/gemini-2.0-flash-thinking-exp:free") -> str:
-    """
-    conversation: list of dicts, each with {"role": "system"/"user"/"assistant", "content": "..."}.
-    Returns the LLM's reply text.
-    """
-    completion = client.chat.completions.create(
-        model=llm_model,
-        messages=conversation
-    )
-    if completion.choices:
-        return completion.choices[0].message.content
-    return "Error: No response from LLM."
+    def reset_conversation(self):
+        """Reset the conversation history."""
+        self.conversation = [self.system_prompt]
 
+    def _generate_system_prompt(self) -> str:
+        """
+        Build a system prompt with context and instructions.
 
-def explain_paper(
-    question: str,
-    model: str,
-    techincal_level: str,
-    article_text: str = None,
-    search_fn=None,
-) -> str:
-    """
-    If article_text is passed, use it directly. Otherwise, do a semantic search
-    (via search_fn) and retrieve relevant text chunks.
-    """
-    if article_text:
-        background = f"Here is the article text: {article_text}"
-    else:
-        # If no article_text, we assume multiple DOIs => semantic search
-        # `search_fn` is a callback to your search_database function
-        relevant_sections = search_fn(question) if search_fn else ""
-        background = (
-            "Here is the relevant section of the paper you can use to answer the question (where applicable):\n"
-            f"{relevant_sections}"
+        :param technical_level: User's requested technical level.
+        :param article_text: Relevant text from the article, if any.
+        :return: A formatted system message string.
+        """
+        instructions = (
+            "You are ScholarDigestAI, tasked with summarizing and explaining academic papers. "
+            "Your goal is to be as clear as possible while matching the user’s technical level. "
+            "Avoid excessive jargon and provide context to help with understanding."
+        )
+        background = f"Here is some relevant text:\n{self.article_text}" if self.article_text else ""
+        return {
+            "role": "system",
+            "content": f"{instructions}\n\n{background}\n",
+        }
+
+    def _parse_chat_response(self, completion):
+        """
+        Parse the response from the LLM chat completion.
+
+        :param completion: Completion object from the LLM chat API.
+        :return: The LLM's response as a string.
+        """
+        if completion.choices:
+            response = completion.choices[0].message.content
+            # Add assistant response to conversation history
+            self.conversation.append({"role": "assistant", "content": response})
+            return response
+        elif completion.error:
+            return f"Error from LLM: {completion.error}"
+
+        return "Error: Unknown LLM response."
+
+    def ask_question(
+        self,
+        question: str,
+        model: str,
+        technical_level: str,
+        relevant_sections=None,
+    ) -> str:
+        """
+        Ask a question and get a response from the LLM.
+        """
+
+        # Handle article text or search function for context
+        if relevant_sections is not None:
+            if isinstance(relevant_sections, list):
+                relevant_sections = "\n\n".join(relevant_sections)
+
+            background = (
+                "Here is the relevant section of the paper you can use to answer the question (if applicable):\n"
+                f"{relevant_sections}\n\n"
+            )
+        else:
+            background = ""
+
+        # Add user message
+        user_message = {
+            "role": "user",
+            "content": f"{question}\n\n{background}Please give your answer at a {technical_level} level.",
+        }
+        self.conversation.append(user_message)
+
+        # Call the LLM
+        completion = self.client.chat.completions.create(
+            model=model,
+            messages=[self.system_prompt] + self.conversation,
         )
 
-    # Build conversation
-    system_msg = {
-        "role": "system",
-        "content": (
-            "You are a ScholarDigestAI tasked with summarising an academic paper. "
-            "Your goal is to summarize and explain the answer in a clear and concise manner, "
-            "minimizing the use of technical terms where possible. Provide context to assist in understanding "
-            "rather than just repeating the text.\n"
-            f"{background}"
-        )
-    }
-    user_msg = {
-        "role": "user",
-        "content": f"{question}\nPlease give your answer at a {techincal_level} level."
-    }
-    conversation = [system_msg, user_msg]
-
-    completion = client.chat.completions.create(
-        model=model,
-        messages=conversation,
-    )
-
-    if completion.choices:
-        return completion.choices[0].message.content
-    elif completion.error:
-        return f"Error from LLM: {completion.error}"
-
-    return "Error: Unknown LLM response."
+        return self._parse_chat_response(completion)
