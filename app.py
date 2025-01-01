@@ -14,13 +14,7 @@ FILING_CABINET_EMOJI = emoji.emojize(":card_file_box:")
 DATA_LOADING_EMOJI = emoji.emojize(":hourglass_flowing_sand:")
 
 
-# Initialize global variables
-current_dois = []
-
-
 def main():
-    global scholar_ai, current_dois
-
     # ---- Initialize Embedding Model ----
     model_name = "emilyalsentzer/Bio_ClinicalBERT"
     word_embedding_model = models.Transformer(model_name)
@@ -65,12 +59,12 @@ def main():
 
     # ---- Handle Sidebar Button Click (Load Data) ----
     if load_data_btn:
-        raw_dois = [d.strip() for d in dois_input.split("\n") if d.strip()]
-        if not raw_dois:
+        dois = [d.strip() for d in dois_input.split("\n") if d.strip()]
+        if not dois:
             st.error("Please enter at least one DOI.")
             return
 
-        current_dois = raw_dois
+        st.session_state["doi_list"] = dois
         st.session_state["dataset_loaded"] = False
 
         # Handle single or multiple DOIs
@@ -78,28 +72,29 @@ def main():
             f"{FILING_CABINET_EMOJI} Loading and processing article data... {DATA_LOADING_EMOJI}"
         ):
             # message = ""
-            for doi in raw_dois:
-                if len(raw_dois) == 1:
-                    doc_data = extract_doi_text(doi)
-                    if doc_data is None:
-                        st.warning(f"Failed to fetch text for `{doi}`. Check the DOI.\n")
-                    else:
-                        st.session_state["full_text"] = doc_data.get("text", "")
-                        st.session_state["title"] = doc_data.get("title", "")
-                        st.success(f"Fetched `{st.session_state['title']}` ({len(st.session_state['full_text'].split()):,} words).\n")
+            if st.session_state["doi_list"] == 1:
+                doc_data = extract_doi_text(st.session_state["doi_list"][0])
+                if doc_data is None:
+                    st.warning(f"Failed to fetch text for `{doi}`. Check the DOI.\n")
                 else:
+                    st.session_state["full_text"] = doc_data.get("text", "")
+                    st.session_state["title"] = doc_data.get("title", "")
+                    st.success(f"Fetched `{st.session_state['title']}` ({len(st.session_state['full_text'].split()):,} words).\n")
+                    st.session_state["scholar_ai"] = ScholarDigestAI(
+                        article_text=st.session_state.get("full_text")
+                    )
+            else:
+                for doi in st.session_state["doi_list"]:
                     data = add_doi_embeddings(doi, bio_clinical_bert, chroma_db_collection)
                     if data is None:
                         st.warning(f"Failed to fetch text for `{doi}`.\n")
                     else:
                         st.success(f"Generated embeddings for `{data.get('title', '')}` ({len(data.get('text', '').split()):,} words).\n")
+                
+                st.session_state["scholar_ai"] = ScholarDigestAI()
 
             st.session_state["dataset_loaded"] = True
-            st.session_state["scholar_ai"] = ScholarDigestAI(
-                article_text=st.session_state.get("full_text")
-            )
-
-    
+            
 
     # ---- Handle Main Panel Button Click (Ask AI) ----
     if ask_btn:
@@ -111,7 +106,7 @@ def main():
             st.error("Please enter a question.")
             return
 
-        if len(current_dois) > 1:
+        if len(st.session_state["doi_list"]) > 1:
             relevant_sections = search_database(
                 query=question_input,
                 model=bio_clinical_bert,
