@@ -1,46 +1,54 @@
 # services/embeddings.py
 
-import sys
-try:
-    import pysqlite3
-    sys.modules["sqlite3"] = pysqlite3
-except ImportError:
-    raise RuntimeError("pysqlite3-binary is not installed. Add it to your requirements.txt.")
-
-import chromadb
-import streamlit as st
-from streamlit_chromadb_connection.chromadb_connection import ChromadbConnection
-
+import numpy as np
 from sentence_transformers import SentenceTransformer
 from services.etl import get_text_chunks
 
-def init_chroma_db(collection_name: str = "biorxiv", persist_directory: str = "/tmp/.chroma") -> tuple:
-    """
-    Initialize Chroma DB connection using ChromaDBConnection and create a collection if it doesn't exist.
-    
-    :param collection_name: The name of the collection to create or connect to.
-    :param persist_directory: Directory to persist the Chroma DB.
-    :return: Tuple of (ChromaDBConnection, collection name)
-    """
-    configuration = {
-        "client": "PersistentClient",
-        "path": persist_directory
-    }
+# In-memory storage for embeddings and metadata
+class InMemoryVectorDB:
+    def __init__(self):
+        self.embeddings = []
+        self.documents = []
+        self.metadata = []
+        self.n_docs = 0
 
-    # Initialize connection to ChromaDB
-    conn = st.connection(name="chromadb", type=ChromadbConnection, **configuration)
+    def add(self, embedding, document, metadata):
+        self.embeddings.append(embedding)
+        self.documents.append(document)
+        self.metadata.append(metadata)
+        self.n_docs += 1
 
-    # Create or get the collection
-    conn.create_collection(
-        collection_name=collection_name,
-        embedding_function_name="",
-        embedding_config={}
-    )
+    def search(self, query_embedding, top_k):
+        if not self.embeddings:
+            return []
 
-    return conn, collection_name
+        # Calculate cosine similarity
+        embeddings_array = np.array(self.embeddings)
+        query_embedding = np.array(query_embedding)
+        similarities = np.dot(embeddings_array, query_embedding) / (
+            np.linalg.norm(embeddings_array, axis=1) * np.linalg.norm(query_embedding) + 1e-10
+        )
 
-def add_embeddings_to_db(data: dict, embeddings_model: SentenceTransformer, conn, collection_name: str):
-    """Upsert document chunks into the Chroma DB."""
+        # Get top-k results
+        top_indices = np.argsort(similarities)[-top_k:][::-1]
+        results = [
+            {
+                "title": self.metadata[i]["title"],
+                "id": self.metadata[i]["id"],
+                "document": self.documents[i],
+            }
+            for i in top_indices
+        ]
+        # sort by title/id
+        sorted_results = sorted(results, key=lambda x: (x["title"], x["id"]))
+        return [x["document"] for x in sorted_results]
+
+def init_in_memory_db() -> InMemoryVectorDB:
+    """Initialize an in-memory vector database."""
+    return InMemoryVectorDB()
+
+def add_embeddings_to_db(data: dict, embeddings_model: SentenceTransformer, db: InMemoryVectorDB):
+    """Add document chunks and their embeddings to the in-memory DB."""
     if data is None:
         return
     if len(data.get("chunks", [])) == 0:
@@ -50,43 +58,19 @@ def add_embeddings_to_db(data: dict, embeddings_model: SentenceTransformer, conn
     title = data["title"]
     doi = data["doi"]
 
-    documents = []
-    metadatas = []
-    ids = []
-
     for i, (text, embedding) in enumerate(zip(data["chunks"], embeddings)):
-        documents.append(text)
-        metadatas.append({"id": i, "title": title, "doi": doi})
-        ids.append(f"{i}_{doi}")
+        db.add(embedding, text, {"id": i, "title": title, "doi": doi})
 
-    conn.upload_documents(
-        collection_name=collection_name,
-        documents=documents,
-        metadatas=metadatas,
-        embeddings=[embedding.tolist() for embedding in embeddings],
-        ids=ids
-    )
-
-def search_database(query: str, model: SentenceTransformer, conn, collection_name: str, top_k: int = 25) -> str:
-    """Perform semantic search on the vector database."""
+def search_database(query: str, model: SentenceTransformer, db: InMemoryVectorDB, top_k: int = 10) -> list:
+    """Perform a cosine similarity search on the in-memory DB."""
     query_embedding = model.encode(query)
-    results = conn.query(
-        collection_name=collection_name, 
-        query_embedding=query_embedding.tolist(),
-        num_results_limit=top_k,
-        attributes=["documents"]
-    )
+    results = db.search(query_embedding, top_k=top_k)
+    return results
 
-    if results is not None and "documents" in results and results["documents"]:
-        return "\n".join(results["documents"][0])
-    else:
-        return ""
-
-def add_doi_embeddings(doi: str, embeddings_model: SentenceTransformer, conn, collection_name: str):
+def add_doi_embeddings(doi: str, embeddings_model: SentenceTransformer, db: InMemoryVectorDB):
     """
-    Extract chunks from a biorxiv paper and embed them into Chroma DB.
-    `etl_service` is a reference to your ETL module (to avoid circular imports).
+    Extract chunks from a biorxiv paper and embed them into the in-memory DB.
     """
     data = get_text_chunks(doi)
-    add_embeddings_to_db(data, embeddings_model, conn, collection_name)
+    add_embeddings_to_db(data, embeddings_model, db)
     return data

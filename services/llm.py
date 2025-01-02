@@ -4,11 +4,11 @@ import streamlit as st
 from openai import OpenAI
 
 
-# Load .env for local development
-if not os.getenv("STREAMLIT_CLOUD"):  # Check if running on Streamlit Cloud
-    dotenv.load_dotenv()
-
-OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", st.secrets.get("OPENROUTER_API_KEY"))
+# if running on streamlit cloud
+dotenv.load_dotenv()
+OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
+if len(OPENROUTER_KEY) == 0:
+    st.error("API key not found. Please provide an Open Router API key to use this app.")
 
 
 
