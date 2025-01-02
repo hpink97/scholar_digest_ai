@@ -49,6 +49,8 @@ def main():
         load_data_btn = st.button("Load Data")
 
         if load_data_btn:
+            st.session_state["dataset_loaded"] = False
+            st.session_state["embeddings_db"] = init_in_memory_db()
             # Parse the DOIs from user input, store them in session state
             doi_list = [d.strip() for d in dois_input.split("\n") if d.strip()]
             if len(doi_list) == 0:
@@ -56,8 +58,6 @@ def main():
                 return
 
             st.session_state["doi_list"] = doi_list
-            st.session_state["dataset_loaded"] = False
-
 
             st.markdown(f"{DATA_LOADING_EMOJI} Loading Data...")
             if len(doi_list) == 1:
@@ -76,7 +76,7 @@ def main():
                     )
             else:
                 # multiple DOIs -> build embeddings
-                st.markdown(f"Building embeddings for {len(doi_list)} papers with {model_name}...")
+                st.markdown(f"Building embeddings for {len(doi_list)} papers with `{model_name}`...")
                 for doi in doi_list:
                     data = add_doi_embeddings(doi, embedding_model, embeddings_db)
                     if data is None:
@@ -107,7 +107,7 @@ def main():
             "google/gemini-flash-1.5",
             "deepseek/deepseek-chat",
         ],
-        index=2,
+        index=1,
     )
     ask_btn = st.button("Ask AI")
 
