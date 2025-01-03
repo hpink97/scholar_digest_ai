@@ -1,6 +1,6 @@
 import streamlit as st
 import emoji
-from sentence_transformers import SentenceTransformer, models
+from transformers import AutoTokenizer, AutoModel
 
 from services.etl import extract_doi_text
 from services.embeddings import init_in_memory_db, add_doi_embeddings, search_database
@@ -10,6 +10,15 @@ ROBOT_EMOJI = emoji.emojize(":robot:")
 FILING_CABINET_EMOJI = emoji.emojize(":card_file_box:")
 DATA_LOADING_EMOJI = emoji.emojize(":hourglass_flowing_sand:")
 BOOK_STACK_EMOJI = emoji.emojize(":books:")
+GREEN_CHECKMARK_EMOJI = emoji.emojize(":heavy_check_mark:")
+
+def _initialise_embeddings_model(model_name):
+    # ---- Initialize Embedding Model ----
+    return {
+        "name" : model_name,
+        "tokenizer": AutoTokenizer.from_pretrained(model_name),
+        "model" : AutoModel.from_pretrained(model_name)
+    }
 
 def main():
 
@@ -24,16 +33,9 @@ def main():
         st.session_state["title"] = ""
     if "scholar_ai" not in st.session_state:
         st.session_state["scholar_ai"] = None
-    # You may also want to store embeddings_db in session_state if you need it
     if "embeddings_db" not in st.session_state:
         st.session_state["embeddings_db"] = init_in_memory_db()
-
-    # ---- Initialize Embedding Model ----
-    model_name = "allenai/scibert_scivocab_cased"
-    embedding_model = SentenceTransformer(model_name)
-
-    # For readability:
-    embeddings_db = st.session_state["embeddings_db"]
+    
 
     # ---- Streamlit UI ----
     st.title("ScholarDigestAI - Paper Explainer")
@@ -44,7 +46,7 @@ def main():
         st.subheader("Paper(s) to Analyze")
         dois_input = st.text_area(
             "Enter DOI(s), one per line:",
-            value="https://doi.org/10.1101/2023.07.19.549542\nhttps://doi.org/10.1007/s00122-022-04129-5",
+            value="https://doi.org/10.1101/2023.07.19.549542",
         )
         load_data_btn = st.button("Load Data")
 
@@ -75,10 +77,21 @@ def main():
                         article_text=st.session_state["full_text"]
                     )
             else:
+                # Load embeddings model
+                if "embeddings_model" not in st.session_state:
+                    # ---- Initialize Embedding Model ----
+                    st.write(f"{ROBOT_EMOJI} Initializing Embeddings Model...")
+                    st.session_state["embeddings_model"] = _initialise_embeddings_model("NeuML/pubmedbert-base-embeddings")
+        
                 # multiple DOIs -> build embeddings
-                st.markdown(f"Building embeddings for {len(doi_list)} papers with `{model_name}`...")
+                st.markdown(f"Building embeddings for {len(doi_list)} papers with `{st.session_state['embeddings_model']['name']}`...")
                 for doi in doi_list:
-                    data = add_doi_embeddings(doi, embedding_model, embeddings_db)
+                    data = add_doi_embeddings(
+                        doi, 
+                        st.session_state["embeddings_model"]["model"], 
+                        st.session_state["embeddings_model"]["tokenizer"], 
+                        st.session_state["embeddings_db"] 
+                    )
                     if data is None:
                         st.warning(f"Failed to fetch text for `{doi}`.\n")
                     else:
@@ -89,11 +102,15 @@ def main():
                 st.session_state["scholar_ai"] = ScholarDigestAI()
 
             # Data loaded successfully
+            st.write(f"{GREEN_CHECKMARK_EMOJI} Data Loaded.")
             st.session_state["dataset_loaded"] = True
 
     # Main panel for asking questions
-    st.subheader("Ask Questions About the Papers")
-    question_input = st.text_area("Your Question:")
+    st.subheader("Ask Questions About the Paper(s)")
+    question_input = st.text_area(
+        "Your Question:", 
+        value="Please provide a summary of the key findings, and discuss any limitations.",
+    )
     techincal_level = st.selectbox(
         "Select Technical Level",
         ["elementary", "high school", "undergrad", "domain expert"],
@@ -129,18 +146,11 @@ def main():
             # multiple DOIs => search embeddings db
             relevant_sections = search_database(
                 query=question_input,
-                model=embedding_model,
-                db=embeddings_db,
-                top_k=min(embeddings_db.n_docs, 20),
+                embedding_model=st.session_state["embeddings_model"]["model"], 
+                tokenizer=st.session_state["embeddings_model"]["tokenizer"],
+                db=st.session_state["embeddings_db"] ,
+                top_k=min(st.session_state["embeddings_db"].n_docs, 20),
             )
-            # st.markdown("### Relevant Sections:")
-            # for section in relevant_sections:
-            #     st.write("-"*50)
-            #     st.write(section)
-        # elif n_dois == 1:
-        #     st.success("Giving LLM whole paper.\n")
-        # else:
-        #     st.warning("No papers loaded.\n")
 
         # Ask the LLM
         with st.spinner(f"{emoji.emojize(':robot:')} AI is thinking..."):

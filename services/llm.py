@@ -88,8 +88,10 @@ class ScholarDigestAI:
             if isinstance(relevant_sections, list):
                 relevant_sections = "\n\n".join(relevant_sections)
 
+            print("-"*50)
+            print("\nUsing releavant sections in prompt\n\n")
             background = (
-                "Here is the relevant section of the paper you can use to answer the question (if applicable):\n"
+                "Here is the relevant section of the paper you can use to answer the question (if applicable):\n" 
                 f"{relevant_sections}\n\n"
             )
         else:
@@ -98,9 +100,10 @@ class ScholarDigestAI:
         # Add user s
         user_message = {
             "role": "user",
-            "content": f"{question}\n\n{background}Please give your answer at a {technical_level} level.",
+            "content": f"{question}\n\n{background}Please give your answer at a {technical_level} level\n\nLimit your response to a maximum of 500 words.",
         }
         self.conversation.append(user_message)
+        print(self.conversation)
 
         # Call the LLM
         completion = self.client.chat.completions.create(
