@@ -124,7 +124,7 @@ def main():
             "google/gemini-flash-1.5",
             "deepseek/deepseek-chat",
         ],
-        index=1,
+        index=2,
     )
     ask_btn = st.button("Ask AI")
 

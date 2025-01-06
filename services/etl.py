@@ -4,15 +4,30 @@ import re
 import requests
 import pdfplumber
 import os
+import feedparser
 from bs4 import BeautifulSoup
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 
 def _extract_doi_suffix(raw_doi: str) -> str:
     """Strip known prefixes like https://doi.org/ or doi:."""
-    raw_doi = raw_doi.strip().lower()
     doi = re.sub(r"^https?://doi\.org/", "", raw_doi)
     return re.sub(r"^doi:", "", doi)
+
+def _extract_arxiv_id(raw_doi: str) -> str:
+    if "arxiv.org/abs/" in raw_doi:
+        parts = raw_doi.split("/abs/")
+        if len(parts) > 1:
+            return parts[1]
+    if "arxiv." in raw_doi:
+        parts = raw_doi.split("arxiv.")
+        if len(parts) > 1:
+            return parts[1]
+    
+        
+    print(f"Failed to extract arXiv ID from raw DOI ({raw_doi})")
+    
+    return None
 
 
 def doi_to_pmcid(doi):
@@ -96,6 +111,7 @@ def get_biorxiv_metadata(raw_doi: str) -> dict:
     json_response = resp.json()
     if "collection" not in json_response or len(json_response.get("collection", [])) < 1:
         return None
+    
     return json_response
 
 
@@ -106,14 +122,26 @@ def construct_biorxiv_pdf_url(metadata: dict) -> str:
     version = metadata.get("collection", {})[-1].get("version", "1")
     return f"{base_url}/{doi}v{version}.full.pdf"
 
+def get_arxiv_metadata(doi: str) -> dict:
+    """
+    Fetch metadata for a given arXiv paper via the arXiv API.
+    :param arxiv_id: The arXiv identifier, e.g. '2301.12345'
+    :return: Dictionary containing metadata like title, authors, summary, etc.
+    """
+    # Build the query URL.
+    # Example: 'https://export.arxiv.org/api/query?search_query=id:2301.12345'
+    arxiv_id = _extract_arxiv_id(doi)
+    base_url = "https://export.arxiv.org/api/query"
+    query_url = f"{base_url}?search_query=id:{arxiv_id}"
 
-def extract_biorxiv_pdf_text(doi: str, tmp_path: str = "temp.pdf") -> dict:
-    """Fetch PDF from BioRxiv, extract text, then remove temp file."""
-    metadata = get_biorxiv_metadata(doi)
-    if not metadata:
-        return None
-    pdf_url = construct_biorxiv_pdf_url(metadata)
+    # Fetch and parse the Atom feed.
+    feed = feedparser.parse(query_url)
+    if len(feed.get("entries",[])) >= 1:
+        return feed["entries"][-1]
+    return None
 
+
+def _get_pdf_text(pdf_url: str, tmp_path: str = "temp.pdf") -> str:
     resp = requests.get(pdf_url)
     if resp.headers.get("Content-Type") != "application/pdf" or resp.status_code != 200:
         return None
@@ -130,19 +158,55 @@ def extract_biorxiv_pdf_text(doi: str, tmp_path: str = "temp.pdf") -> dict:
 
     if len(all_text) < 100:
         return None
+    
+    return all_text
 
+def extract_biorxiv_pdf_text(doi: str) -> dict:
+    """Fetch PDF from BioRxiv, extract text, then remove temp file."""
+    metadata = get_biorxiv_metadata(doi)
+    if not metadata:
+        return None
+    pdf_url = construct_biorxiv_pdf_url(metadata)
+    if not pdf_url:
+        return None
+    
     return {
-        "text": all_text,
+        "text": _get_pdf_text(pdf_url),
         "doi": metadata.get("collection", {})[0].get("doi", ""),
         "title": metadata.get("collection", {})[-1].get("title", ""),
+    }
+
+def extract_arxiv_pdf_text(doi: str) -> dict:
+    """Fetch PDF from BioRxiv, extract text, then remove temp file."""
+    metadata = get_arxiv_metadata(doi)
+    if not metadata:
+        return None
+    pdf_url = [i.get("href","") for i in metadata["links"] if i.get("title") == "pdf"]
+    if len(pdf_url)==0 or len(pdf_url[0])==0:
+        return None
+    pdf_text = _get_pdf_text(pdf_url[0])
+    if pdf_text is None:
+        return None
+    
+    return {
+        "text": pdf_text,
+        "doi": metadata.get("link", ""),
+        "title": metadata.get("title", "")
     }
 
 
 def extract_doi_text(doi: str) -> dict:
     """Extract text from PDF using BioRxiv or Europe PMC."""
-    biorxiv_text = extract_biorxiv_pdf_text(doi)
-    if biorxiv_text is not None:
-        return biorxiv_text
+    doi = doi.strip().lower()
+    if "arxiv" in doi.lower():
+        arxiv_text = extract_arxiv_pdf_text(doi)
+        if arxiv_text is not None:
+            return arxiv_text
+        
+    if "10.1101" in doi:
+        biorxiv_text = extract_biorxiv_pdf_text(doi)
+        if biorxiv_text is not None:
+            return biorxiv_text
 
     pubmed_text = extract_text_pubmed(doi)
     if pubmed_text is not None:

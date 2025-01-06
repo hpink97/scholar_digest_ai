@@ -14,7 +14,6 @@ class InMemoryVectorDB:
         self.n_docs = 0
 
     def add(self, embedding, document, metadata):
-        print(f"Adding document {metadata['id']} to the database")
         self.embeddings.append(embedding)
         self.documents.append(document)
         self.metadata.append(metadata)
@@ -27,11 +26,8 @@ class InMemoryVectorDB:
 
         # Calculate cosine similarity
         
-        print("Converting embeddings to numpy array")
         embeddings_array = np.array(self.embeddings)
         query_embedding = np.array(query_embedding).squeeze()
-        print(f"Embeddings shape: {embeddings_array.shape}, query_embedding shape: {query_embedding.shape}")
-        print("\nCalculating similarities")
         similarities = np.dot(embeddings_array, query_embedding) / (
             np.linalg.norm(embeddings_array, axis=1) * np.linalg.norm(query_embedding) + 1e-10
         )
@@ -48,8 +44,6 @@ class InMemoryVectorDB:
             for i in top_indices
         ]
         # sort by title/id
-        print(f"Returned {len(results)} results")
-        sorted_results = sorted(results, key=lambda x: (x["title"], x["id"]))
         return [x["document"] for x in results]
 
 def init_in_memory_db() -> InMemoryVectorDB:
@@ -91,20 +85,14 @@ def add_embeddings_to_db(data: dict, embeddings_model, tokenizer, db: InMemoryVe
     title = data["title"]
     doi = data["doi"]
 
-    print(f"Generated {len(embeddings)} embeddings for {title} ({doi}).")
-
     for i, (text, embedding) in enumerate(zip(data["chunks"], embeddings)):
         db.add(embedding, text, {"id": i, "title": title, "doi": doi})
 
-    print("-" * 50)
-    print(f"Example: id: {i}\ntext: {text}\nembedding: {embedding[0:20]}")
 
 def search_database(query: str, embedding_model, tokenizer, db: InMemoryVectorDB, top_k: int = 10) -> list:
     """Perform a cosine similarity search on the in-memory DB."""
     query_embedding = calculate_embeddings([query], embedding_model, tokenizer)
-    print(f"Query: {query}, query_embedding: {query_embedding[0][0:20]}")
     results = db.search(query_embedding, top_k=top_k)
-    print(f"Found {len(results)} results")
     return results
 
 def add_doi_embeddings(doi: str, embedding_model, tokenizer , db: InMemoryVectorDB):
