@@ -95,10 +95,10 @@ def search_database(query: str, embedding_model, tokenizer, db: InMemoryVectorDB
     results = db.search(query_embedding, top_k=top_k)
     return results
 
-def add_doi_embeddings(doi: str, embedding_model, tokenizer , db: InMemoryVectorDB):
+def add_doi_embeddings(data: dict, embedding_model, tokenizer , db: InMemoryVectorDB):
     """
     Extract chunks from a biorxiv paper and embed them into the in-memory DB.
     """
-    data = get_text_chunks(doi)
+    data = get_text_chunks(data)
     add_embeddings_to_db(data, embedding_model, tokenizer, db)
     return data

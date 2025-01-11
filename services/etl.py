@@ -253,12 +253,11 @@ def chunk_text(text: str, chunk_size: int, chunk_overlap: int) -> list:
     return chunks
 
 
-def get_text_chunks(doi: str, chunk_size: int = 1000, chunk_overlap: int = 100) -> dict:
+def get_text_chunks(text_data: str, chunk_size: int = 1000, chunk_overlap: int = 100) -> dict:
     """Extract PDF text and split into chunks."""
-    data = extract_doi_text(doi)
-    if data is None:
+    if text_data is None:
         return None
 
-    chunks = chunk_text(text=data["text"], chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-    data["chunks"] = [i.replace("\n", " ").strip() for i in chunks]
-    return data
+    chunks = chunk_text(text=text_data["text"], chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    text_data["chunks"] = [i.replace("\n", " ").strip() for i in chunks]
+    return text_data

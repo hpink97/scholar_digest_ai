@@ -43,12 +43,15 @@ class ScholarDigestAI:
                 "Limit each bullet to a key finding or insight."
             ),
             "Short summary": (
-                "Provide a short summary, around 100-200 words, covering key insights "
-                "without going into extensive detail."
+                "Provide a short summary, around 250-400 words, covering key insights "
+                "without going into extensive detail. Focus on the main results and their implications."
             ),
             "Detailed summary": (
-                "Provide a comprehensive, detailed summary. You may include sections like "
-                "Introduction, Methods, Results, and Discussion, if relevant."
+                "Provide a comprehensive, detailed summary. You may include sections like; "
+                "Short Background, Hypothesis, Key Results, Impact (and optionally, Limitations). "
+                "No need to include minor limitations for impressive papers. "
+
+
             ),
         }
 
