@@ -5,6 +5,7 @@ import requests
 import pdfplumber
 import os
 import feedparser
+import io
 from bs4 import BeautifulSoup
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
@@ -156,7 +157,7 @@ def _get_pdf_text(pdf_url: str, tmp_path: str = "temp.pdf") -> str:
 
     os.remove(tmp_path)
 
-    if len(all_text) < 100:
+    if len(all_text) < 1_000:
         return None
     
     return all_text
@@ -194,6 +195,18 @@ def extract_arxiv_pdf_text(doi: str) -> dict:
         "title": metadata.get("title", "")
     }
 
+def extract_url_pdf_text(url: str) -> dict:
+    """Extract text from PDF using URL."""
+    pdf_text = _get_pdf_text(url)
+    if pdf_text is None:
+        return None
+    
+    return {
+        "text": pdf_text,
+        "doi": url,
+        "title": url
+    }
+
 
 def extract_doi_text(doi: str) -> dict:
     """Extract text from PDF using BioRxiv or Europe PMC."""
@@ -211,8 +224,26 @@ def extract_doi_text(doi: str) -> dict:
     pubmed_text = extract_text_pubmed(doi)
     if pubmed_text is not None:
         return pubmed_text
+    
+
+    pdf_text = extract_url_pdf_text(doi)
+    if pdf_text is not None:
+        return pdf_text
 
     return None
+
+def extract_text_from_uploaded_pdf(uploaded_pdf) -> str:
+    """
+    Reads an uploaded PDF file (from st.file_uploader) using pdfplumber
+    and returns extracted text as a string.
+    """
+    pdf_text = ""
+    with pdfplumber.open(io.BytesIO(uploaded_pdf.read())) as pdf:
+        for page in pdf.pages:
+            page_text = page.extract_text()
+            if page_text:
+                pdf_text += page_text + "\n"
+    return pdf_text.strip()
 
 
 def chunk_text(text: str, chunk_size: int, chunk_overlap: int) -> list:
