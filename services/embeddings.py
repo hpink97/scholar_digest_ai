@@ -5,6 +5,7 @@ from transformers import AutoTokenizer, AutoModel
 import torch
 from services.etl import get_text_chunks
 
+
 # In-memory storage for embeddings and metadata
 class InMemoryVectorDB:
     def __init__(self):
@@ -25,11 +26,12 @@ class InMemoryVectorDB:
             return []
 
         # Calculate cosine similarity
-        
+
         embeddings_array = np.array(self.embeddings)
         query_embedding = np.array(query_embedding).squeeze()
         similarities = np.dot(embeddings_array, query_embedding) / (
-            np.linalg.norm(embeddings_array, axis=1) * np.linalg.norm(query_embedding) + 1e-10
+            np.linalg.norm(embeddings_array, axis=1) * np.linalg.norm(query_embedding)
+            + 1e-10
         )
 
         # Get top-k results
@@ -45,6 +47,7 @@ class InMemoryVectorDB:
         ]
         # sort by title/id
         return [x["document"] for x in results]
+
 
 def init_in_memory_db() -> InMemoryVectorDB:
     """Initialize an in-memory vector database."""
@@ -64,13 +67,16 @@ def calculate_embeddings(text_list, embeddings_model, tokenizer):
     last_hidden_states = outputs.last_hidden_state
 
     # Mean-pooling
-    attention_mask = inputs['attention_mask']
-    input_mask_expanded = attention_mask.unsqueeze(-1).expand(last_hidden_states.size()).float()
+    attention_mask = inputs["attention_mask"]
+    input_mask_expanded = (
+        attention_mask.unsqueeze(-1).expand(last_hidden_states.size()).float()
+    )
     sum_embeddings = torch.sum(last_hidden_states * input_mask_expanded, dim=1)
     sum_mask = torch.clamp(input_mask_expanded.sum(dim=1), min=1e-9)
     sentence_embeddings = sum_embeddings / sum_mask
 
     return sentence_embeddings.tolist()
+
 
 def add_embeddings_to_db(data: dict, embeddings_model, tokenizer, db: InMemoryVectorDB):
     """Add document chunks and their embeddings to the in-memory DB."""
@@ -89,13 +95,16 @@ def add_embeddings_to_db(data: dict, embeddings_model, tokenizer, db: InMemoryVe
         db.add(embedding, text, {"id": i, "title": title, "doi": doi})
 
 
-def search_database(query: str, embedding_model, tokenizer, db: InMemoryVectorDB, top_k: int = 10) -> list:
+def search_database(
+    query: str, embedding_model, tokenizer, db: InMemoryVectorDB, top_k: int = 10
+) -> list:
     """Perform a cosine similarity search on the in-memory DB."""
     query_embedding = calculate_embeddings([query], embedding_model, tokenizer)
     results = db.search(query_embedding, top_k=top_k)
     return results
 
-def add_embeddings(data: dict, embedding_model, tokenizer , db: InMemoryVectorDB):
+
+def add_embeddings(data: dict, embedding_model, tokenizer, db: InMemoryVectorDB):
     """
     Extract chunks from a biorxiv paper and embed them into the in-memory DB.
     """

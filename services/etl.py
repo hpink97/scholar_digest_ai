@@ -15,6 +15,7 @@ def _extract_doi_suffix(raw_doi: str) -> str:
     doi = re.sub(r"^https?://doi\.org/", "", raw_doi)
     return re.sub(r"^doi:", "", doi)
 
+
 def _extract_arxiv_id(raw_doi: str) -> str:
     if "arxiv.org/abs/" in raw_doi:
         parts = raw_doi.split("/abs/")
@@ -24,10 +25,9 @@ def _extract_arxiv_id(raw_doi: str) -> str:
         parts = raw_doi.split("arxiv.")
         if len(parts) > 1:
             return parts[1]
-    
-        
+
     print(f"Failed to extract arXiv ID from raw DOI ({raw_doi})")
-    
+
     return None
 
 
@@ -98,7 +98,12 @@ def extract_text_pubmed(doi: str) -> dict:
     text = extract_article_text(full_text)
     if not text or len(text) < 100:
         return None
-    return {"text": text, "doi": doi, "title": data["title"], "authors": data["authors"]}
+    return {
+        "text": text,
+        "doi": doi,
+        "title": data["title"],
+        "authors": data["authors"],
+    }
 
 
 def get_biorxiv_metadata(raw_doi: str) -> dict:
@@ -110,9 +115,12 @@ def get_biorxiv_metadata(raw_doi: str) -> dict:
     if resp.status_code != 200:
         return None
     json_response = resp.json()
-    if "collection" not in json_response or len(json_response.get("collection", [])) < 1:
+    if (
+        "collection" not in json_response
+        or len(json_response.get("collection", [])) < 1
+    ):
         return None
-    
+
     return json_response
 
 
@@ -122,6 +130,7 @@ def construct_biorxiv_pdf_url(metadata: dict) -> str:
     doi = metadata.get("collection", {})[-1].get("doi", "")
     version = metadata.get("collection", {})[-1].get("version", "1")
     return f"{base_url}/{doi}v{version}.full.pdf"
+
 
 def get_arxiv_metadata(doi: str) -> dict:
     """
@@ -137,7 +146,7 @@ def get_arxiv_metadata(doi: str) -> dict:
 
     # Fetch and parse the Atom feed.
     feed = feedparser.parse(query_url)
-    if len(feed.get("entries",[])) >= 1:
+    if len(feed.get("entries", [])) >= 1:
         return feed["entries"][-1]
     return None
 
@@ -159,8 +168,9 @@ def _get_pdf_text(pdf_url: str, tmp_path: str = "temp.pdf") -> str:
 
     if len(all_text) < 1_000:
         return None
-    
+
     return all_text
+
 
 def extract_biorxiv_pdf_text(doi: str) -> dict:
     """Fetch PDF from BioRxiv, extract text, then remove temp file."""
@@ -170,42 +180,40 @@ def extract_biorxiv_pdf_text(doi: str) -> dict:
     pdf_url = construct_biorxiv_pdf_url(metadata)
     if not pdf_url:
         return None
-    
+
     return {
         "text": _get_pdf_text(pdf_url),
         "doi": metadata.get("collection", {})[0].get("doi", ""),
         "title": metadata.get("collection", {})[-1].get("title", ""),
     }
 
+
 def extract_arxiv_pdf_text(doi: str) -> dict:
     """Fetch PDF from BioRxiv, extract text, then remove temp file."""
     metadata = get_arxiv_metadata(doi)
     if not metadata:
         return None
-    pdf_url = [i.get("href","") for i in metadata["links"] if i.get("title") == "pdf"]
-    if len(pdf_url)==0 or len(pdf_url[0])==0:
+    pdf_url = [i.get("href", "") for i in metadata["links"] if i.get("title") == "pdf"]
+    if len(pdf_url) == 0 or len(pdf_url[0]) == 0:
         return None
     pdf_text = _get_pdf_text(pdf_url[0])
     if pdf_text is None:
         return None
-    
+
     return {
         "text": pdf_text,
         "doi": metadata.get("link", ""),
-        "title": metadata.get("title", "")
+        "title": metadata.get("title", ""),
     }
+
 
 def extract_url_pdf_text(url: str) -> dict:
     """Extract text from PDF using URL."""
     pdf_text = _get_pdf_text(url)
     if pdf_text is None:
         return None
-    
-    return {
-        "text": pdf_text,
-        "doi": url,
-        "title": url
-    }
+
+    return {"text": pdf_text, "doi": url, "title": url}
 
 
 def extract_doi_text(doi: str) -> dict:
@@ -215,7 +223,7 @@ def extract_doi_text(doi: str) -> dict:
         arxiv_text = extract_arxiv_pdf_text(doi)
         if arxiv_text is not None:
             return arxiv_text
-        
+
     if "10.1101" in doi:
         biorxiv_text = extract_biorxiv_pdf_text(doi)
         if biorxiv_text is not None:
@@ -224,13 +232,13 @@ def extract_doi_text(doi: str) -> dict:
     pubmed_text = extract_text_pubmed(doi)
     if pubmed_text is not None:
         return pubmed_text
-    
 
     pdf_text = extract_url_pdf_text(doi)
     if pdf_text is not None:
         return pdf_text
 
     return None
+
 
 def extract_text_from_uploaded_pdf(uploaded_pdf) -> str:
     """
@@ -248,16 +256,22 @@ def extract_text_from_uploaded_pdf(uploaded_pdf) -> str:
 
 def chunk_text(text: str, chunk_size: int, chunk_overlap: int) -> list:
     """Split text into chunks using RecursiveCharacterTextSplitter."""
-    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size, chunk_overlap=chunk_overlap
+    )
     chunks = splitter.split_text(text)
     return chunks
 
 
-def get_text_chunks(text_data: str, chunk_size: int = 1000, chunk_overlap: int = 100) -> dict:
+def get_text_chunks(
+    text_data: str, chunk_size: int = 1000, chunk_overlap: int = 100
+) -> dict:
     """Extract PDF text and split into chunks."""
     if text_data is None:
         return None
 
-    chunks = chunk_text(text=text_data["text"], chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    chunks = chunk_text(
+        text=text_data["text"], chunk_size=chunk_size, chunk_overlap=chunk_overlap
+    )
     text_data["chunks"] = [i.replace("\n", " ").strip() for i in chunks]
     return text_data

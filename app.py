@@ -24,12 +24,14 @@ SETTINGS_EMOJI = emoji.emojize(":gear:")
 # WORD LIMIT THRESHOLD
 MAX_WORDS = 20_000
 
+
 def _initialise_embeddings_model(model_name):
     return {
         "name": model_name,
         "tokenizer": AutoTokenizer.from_pretrained(model_name),
         "model": AutoModel.from_pretrained(model_name),
     }
+
 
 def main():
     # -- Session State Vars --
@@ -117,9 +119,7 @@ def main():
     doi_option = f"Enter a DOI {LINK_EMOJI}"
     pdf_option = f"Upload a PDF {PDF_EMOJI}"
     input_mode = st.radio(
-        "Choose your input method:",
-        [doi_option, pdf_option],
-        index=0
+        "Choose your input method:", [doi_option, pdf_option], index=0
     )
 
     uploaded_pdf = None
@@ -134,7 +134,9 @@ def main():
         )
     else:
         # PDF Upload
-        uploaded_pdf = st.file_uploader("Upload a PDF file", type=["pdf"], accept_multiple_files=False)
+        uploaded_pdf = st.file_uploader(
+            "Upload a PDF file", type=["pdf"], accept_multiple_files=False
+        )
 
     # Question Input
     question_input = st.text_area(
@@ -147,7 +149,13 @@ def main():
     with st.expander(f"Additional Settings {SETTINGS_EMOJI}"):
         techincal_level = st.selectbox(
             "Select Technical Level",
-            ["elementary", "high school", "non-specialist", "undergrad", "domain expert"],
+            [
+                "elementary",
+                "high school",
+                "non-specialist",
+                "undergrad",
+                "domain expert",
+            ],
             index=1,
         )
         model_choice = st.selectbox(
@@ -158,7 +166,6 @@ def main():
                 "google/gemini-flash-1.5",
                 "deepseek/deepseek-chat",
                 "openrouter/auto",
-
             ],
             index=2,
         )
@@ -167,10 +174,14 @@ def main():
             ["TL;DR", "Concise Bullet Points", "Short summary", "Detailed summary"],
             index=1,
         )
-        language_choice = st.text_input("What language should the AI respond in?:", "English")
+        language_choice = st.text_input(
+            "What language should the AI respond in?:", "English"
+        )
 
     # Determine button label
-    button_label = "Ask AI" if not st.session_state["dataset_loaded"] else "Ask Another Question"
+    button_label = (
+        "Ask AI" if not st.session_state["dataset_loaded"] else "Ask Another Question"
+    )
     ask_btn = st.button(button_label)
 
     if ask_btn:
@@ -210,19 +221,23 @@ def main():
                                 "Building embeddings for more efficient retrieval..."
                             )
                             if st.session_state["embeddings_model"] is None:
-                                st.session_state["embeddings_model"] = _initialise_embeddings_model(
-                                    "NeuML/pubmedbert-base-embeddings"
+                                st.session_state["embeddings_model"] = (
+                                    _initialise_embeddings_model(
+                                        "NeuML/pubmedbert-base-embeddings"
+                                    )
                                 )
                             # Use the add_embeddings approach – but we adapt it for a single doc
                             added_data = add_embeddings(
                                 doc_data,
                                 st.session_state["embeddings_model"]["model"],
                                 st.session_state["embeddings_model"]["tokenizer"],
-                                st.session_state["embeddings_db"]
+                                st.session_state["embeddings_db"],
                             )
                             # Clear out the full_text, so we rely on embeddings
                             st.session_state["full_text"] = ""
-                            st.session_state["scholar_ai"] = ScholarDigestAI(article_text="")
+                            st.session_state["scholar_ai"] = ScholarDigestAI(
+                                article_text=""
+                            )
                             st.success(
                                 f"Generated embeddings for `{doc_data.get('title', '')}` "
                                 f"({word_count:,} words)."
@@ -240,8 +255,10 @@ def main():
                     else:
                         # Multiple papers => embeddings approach (unchanged)
                         if st.session_state["embeddings_model"] is None:
-                            st.session_state["embeddings_model"] = _initialise_embeddings_model(
-                                "NeuML/pubmedbert-base-embeddings"
+                            st.session_state["embeddings_model"] = (
+                                _initialise_embeddings_model(
+                                    "NeuML/pubmedbert-base-embeddings"
+                                )
                             )
                         st.markdown(
                             f"Building embeddings for {len(new_doi_list)} papers "
@@ -265,7 +282,9 @@ def main():
                         # No single large text
                         st.session_state["full_text"] = ""
                         st.session_state["title"] = "Multiple DOIs"
-                        st.session_state["scholar_ai"] = ScholarDigestAI(article_text="")
+                        st.session_state["scholar_ai"] = ScholarDigestAI(
+                            article_text=""
+                        )
 
                     st.session_state["dataset_loaded"] = True
                     st.write(f"{GREEN_CHECKMARK_EMOJI} Data Loaded.")
@@ -276,7 +295,10 @@ def main():
                 st.error("Please upload a PDF file.")
                 return
 
-            if "pdf_filename" not in st.session_state or st.session_state["pdf_filename"] != uploaded_pdf.name:
+            if (
+                "pdf_filename" not in st.session_state
+                or st.session_state["pdf_filename"] != uploaded_pdf.name
+            ):
                 # Reload data only if a different PDF was uploaded
                 st.session_state["pdf_filename"] = uploaded_pdf.name
                 st.session_state["dataset_loaded"] = False
@@ -301,8 +323,10 @@ def main():
                             "Building embeddings for more efficient retrieval..."
                         )
                         if st.session_state["embeddings_model"] is None:
-                            st.session_state["embeddings_model"] = _initialise_embeddings_model(
-                                "NeuML/pubmedbert-base-embeddings"
+                            st.session_state["embeddings_model"] = (
+                                _initialise_embeddings_model(
+                                    "NeuML/pubmedbert-base-embeddings"
+                                )
                             )
                         # We'll adapt add_embeddings to handle a dictionary as well
                         add_dict = {
@@ -318,7 +342,9 @@ def main():
                         )
                         # Clear out the large text
                         st.session_state["full_text"] = ""
-                        st.session_state["scholar_ai"] = ScholarDigestAI(article_text="")
+                        st.session_state["scholar_ai"] = ScholarDigestAI(
+                            article_text=""
+                        )
                         st.success(
                             f"Generated embeddings for `{uploaded_pdf.name}` "
                             f"({word_count:,} words)."
@@ -346,7 +372,10 @@ def main():
         # If we either have multiple DOIs or a single doc above limit, we rely on embeddings
         relevant_sections = None
         # If there's anything in the embeddings DB, let's do a search for relevant chunks
-        if st.session_state["embeddings_db"].n_docs > 0 and st.session_state["embeddings_model"]:
+        if (
+            st.session_state["embeddings_db"].n_docs > 0
+            and st.session_state["embeddings_model"]
+        ):
             relevant_sections = search_database(
                 query=question_input,
                 embedding_model=st.session_state["embeddings_model"]["model"],
@@ -367,6 +396,7 @@ def main():
 
         st.markdown("### AI Response:")
         st.markdown(response)
+
 
 if __name__ == "__main__":
     main()

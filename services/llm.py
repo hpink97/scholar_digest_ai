@@ -8,7 +8,9 @@ from openai import OpenAI
 dotenv.load_dotenv()
 OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY", "")
 if len(OPENROUTER_KEY) == 0:
-    st.error("API key not found. Please provide an Open Router API key to use this app.")
+    st.error(
+        "API key not found. Please provide an Open Router API key to use this app."
+    )
 
 
 class ScholarDigestAI:
@@ -21,11 +23,13 @@ class ScholarDigestAI:
         """
         self.api_key = api_key
         if not self.api_key:
-            raise ValueError("API key must be provided or set in environment variables.")
+            raise ValueError(
+                "API key must be provided or set in environment variables."
+            )
 
         self.base_url = "https://openrouter.ai/api/v1"
         self.client = self._init_client()
-        
+
         self.delimiter = "\n\n"
         self.article_text = article_text
         self.system_prompt = self._generate_system_prompt()
@@ -50,8 +54,6 @@ class ScholarDigestAI:
                 "Provide a comprehensive, detailed summary. You may include sections like; "
                 "Short Background, Hypothesis, Key Results, Impact (and optionally, Limitations). "
                 "No need to include minor limitations for impressive papers. "
-
-
             ),
         }
 
@@ -69,7 +71,7 @@ class ScholarDigestAI:
             ),
             "non-specialist": (
                 "Explain this to a lay audience or member of the general public with no specific scientific background. "
-                "Focus on the why a member of the general public should care? What are the an wider implications of the paper" 
+                "Focus on the why a member of the general public should care? What are the an wider implications of the paper"
                 "in everyday life. "
                 "Avoid jargon. Avoid specalist language. Avoid acronyms. Don't assume any prior knowledge of the field."
             ),
@@ -87,14 +89,13 @@ class ScholarDigestAI:
             ),
         }
 
-    
     def _init_client(self):
         client = OpenAI(
             base_url=self.base_url,
             api_key=self.api_key,
         )
         return client
-        
+
     def reset_conversation(self):
         """Reset the conversation history to just the system prompt."""
         self.conversation = [self.system_prompt]
@@ -118,12 +119,15 @@ class ScholarDigestAI:
             "By following these principles, ensure that any user—regardless of their expertise—can grasp the core insights of the paper. "
         )
 
-        background = f"Here is some relevant text:\n{self.article_text}" if self.article_text else ""
+        background = (
+            f"Here is some relevant text:\n{self.article_text}"
+            if self.article_text
+            else ""
+        )
         return {
             "role": "system",
             "content": f"{instructions}{self.delimiter}{background}{self.delimiter}",
         }
-
 
     def _parse_chat_response(self, completion):
         """
@@ -148,14 +152,11 @@ class ScholarDigestAI:
         """
         # Grab the formatting text from the dictionary, with a fallback
         format_instructions = self.FORMAT_TO_PROMPT.get(
-            format_choice, 
-            "Please provide a concise summary."
+            format_choice, "Please provide a concise summary."
         )
 
         # Incorporate the language choice
-        language_instructions = (
-            f"Respond in {language}. If the paper is in another language, translate or summarize as needed."
-        )
+        language_instructions = f"Respond in {language}. If the paper is in another language, translate or summarize as needed."
 
         # Combine them as you see fit
         final_instructions = (
@@ -181,25 +182,22 @@ class ScholarDigestAI:
         else:
             combined_text = relevant_sections
 
-        
         return (
             f"Here is the relevant section of the paper you can use to answer the question (if applicable):{self.delimiter}"
             f"{combined_text}{self.delimiter}"
         )
-    
+
     def _format_techinical_level(self, technical_level: str) -> str:
         """
         Returns extra prompt instructions based on the user's technical level choice.
         """
         # Grab the technical level text from the dictionary, with a fallback
         technical_level_instructions = self.TECHNICAL_LEVEL_PROMPTS.get(
-            technical_level, 
-            "Please avoid jargon, acroymns or advanced concepts and provide a clear explanation."
+            technical_level,
+            "Please avoid jargon, acroymns or advanced concepts and provide a clear explanation.",
         )
 
-        return (
-            f"{technical_level_instructions}{self.delimiter}"
-        )
+        return f"{technical_level_instructions}{self.delimiter}"
 
     def ask_question(
         self,
@@ -212,7 +210,7 @@ class ScholarDigestAI:
     ) -> str:
         """
         Ask a question and get a response from the LLM.
-        
+
         :param question: The user's question or request.
         :param model: LLM model to be used (e.g., "google/gemini-flash-1.5").
         :param technical_level: The desired technical level (e.g., "elementary").
@@ -221,7 +219,6 @@ class ScholarDigestAI:
         :param relevant_sections: Optional list or string of text from embeddings search or references.
         :return: The LLM's answer as a string.
         """
-
 
         # Create the user message
         user_prompt = (
