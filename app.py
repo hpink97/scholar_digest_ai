@@ -9,7 +9,7 @@ from services.etl import (
 )
 from services.embeddings import (
     init_in_memory_db,
-    add_doi_embeddings,
+    add_embeddings,
     search_database,
 )
 from services.llm import ScholarDigestAI
@@ -17,7 +17,7 @@ from services.llm import ScholarDigestAI
 ROBOT_EMOJI = emoji.emojize(":robot:")
 DATA_LOADING_EMOJI = emoji.emojize(":hourglass_flowing_sand:")
 GREEN_CHECKMARK_EMOJI = emoji.emojize(":heavy_check_mark:")
-WEB_EMOJI = emoji.emojize(":globe_with_meridians:")
+LINK_EMOJI = emoji.emojize(":link:")
 PDF_EMOJI = emoji.emojize(":page_facing_up:")
 SETTINGS_EMOJI = emoji.emojize(":gear:")
 
@@ -104,7 +104,7 @@ def main():
     <p>
     Enter an article <strong class="highlight">DOI</strong> from 
       <a href="https://www.biorxiv.org/" target="_blank">BioRxiv</a>,
-      <a href="https://pmc.ncbi.nlm.nih.gov/" target="_blank">PMC</a>, or
+      <a href="https://pmc.ncbi.nlm.nih.gov/" target="_blank">PubMed Central</a>, or
       <a href="https://arxiv.org/" target="_blank">arXiv</a>, or upload a PDF file.
     </p>
   </div>
@@ -114,7 +114,7 @@ def main():
     st.html(html_content)
 
     # --- Radio Button: Select Input Type ---
-    doi_option = f"Enter a DOI {WEB_EMOJI}"
+    doi_option = f"Enter a DOI {LINK_EMOJI}"
     pdf_option = f"Upload a PDF {PDF_EMOJI}"
     input_mode = st.radio(
         "Choose your input method:",
@@ -213,8 +213,8 @@ def main():
                                 st.session_state["embeddings_model"] = _initialise_embeddings_model(
                                     "NeuML/pubmedbert-base-embeddings"
                                 )
-                            # Use the add_doi_embeddings approach – but we adapt it for a single doc
-                            added_data = add_doi_embeddings(
+                            # Use the add_embeddings approach – but we adapt it for a single doc
+                            added_data = add_embeddings(
                                 doc_data,
                                 st.session_state["embeddings_model"]["model"],
                                 st.session_state["embeddings_model"]["tokenizer"],
@@ -249,7 +249,7 @@ def main():
                         )
                         for doi in new_doi_list:
                             single_data = extract_doi_text(doi)
-                            added_data = add_doi_embeddings(
+                            added_data = add_embeddings(
                                 single_data,
                                 st.session_state["embeddings_model"]["model"],
                                 st.session_state["embeddings_model"]["tokenizer"],
@@ -304,13 +304,13 @@ def main():
                             st.session_state["embeddings_model"] = _initialise_embeddings_model(
                                 "NeuML/pubmedbert-base-embeddings"
                             )
-                        # We'll adapt add_doi_embeddings to handle a dictionary as well
+                        # We'll adapt add_embeddings to handle a dictionary as well
                         add_dict = {
                             "text": pdf_text,
                             "title": uploaded_pdf.name,
                             "doi": uploaded_pdf.name,  # or some identifier
                         }
-                        add_doi_embeddings(
+                        add_embeddings(
                             add_dict,
                             st.session_state["embeddings_model"]["model"],
                             st.session_state["embeddings_model"]["tokenizer"],
