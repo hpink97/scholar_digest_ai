@@ -19,6 +19,7 @@ DATA_LOADING_EMOJI = emoji.emojize(":hourglass_flowing_sand:")
 GREEN_CHECKMARK_EMOJI = emoji.emojize(":heavy_check_mark:")
 WEB_EMOJI = emoji.emojize(":globe_with_meridians:")
 PDF_EMOJI = emoji.emojize(":page_facing_up:")
+SETTINGS_EMOJI = emoji.emojize(":gear:")
 
 # WORD LIMIT THRESHOLD
 MAX_WORDS = 20_000
@@ -143,7 +144,7 @@ def main():
     )
 
     # Collapsible area for additional parameters
-    with st.expander("Additional Settings"):
+    with st.expander(f"Additional Settings {SETTINGS_EMOJI}"):
         techincal_level = st.selectbox(
             "Select Technical Level",
             ["elementary", "high school", "non-specialist", "undergrad", "domain expert"],
